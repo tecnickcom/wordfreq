@@ -1,0 +1,24 @@
+language: c
+os: linux
+dist: trusty
+sudo: required
+addons:
+  apt:
+    packages:
+    - lcov
+    - astyle
+    - devscripts
+    - doxygen
+    - debhelper
+    - pkg-config
+    - alien
+    - rpm
+    - dh-make
+install:
+  - gem install coveralls-lcov
+
+script:
+  - make all
+
+after_success:
+  - coveralls-lcov /home/travis/build/tecnickcom/wordfreq/target/test/coverage/wordfreq.info

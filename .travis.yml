@@ -5,15 +5,17 @@ sudo: required
 addons:
   apt:
     packages:
-    - lcov
-    - astyle
-    - devscripts
-    - doxygen
-    - debhelper
-    - pkg-config
     - alien
-    - rpm
+    - astyle
+    - debhelper
+    - devscripts
     - dh-make
+    - doxygen
+    - fakeroot
+    - lcov
+    - pkg-config
+    - rpm
+
 install:
   - gem install coveralls-lcov
 

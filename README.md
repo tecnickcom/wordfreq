@@ -28,16 +28,20 @@ cat <FILENAME> | tr -cs 'a-zA-Z' '[\n*]' | grep -v "^$" | tr '[:upper:]' '[:lowe
 
 ### Development dependencies:
 
- * lcov
- * astyle
- * devscripts
- * doxygen
- * debhelper
- * pkg-config
- * alien
- * rpm
- * dh-make
- * clang-tidy
+* alien
+* astyle
+* build-essential
+* clang-tidy
+* cmake
+* debhelper
+* devscripts
+* dh-make
+* doxygen
+* fakeroot
+* lcov
+* make
+* pkg-config
+* rpm
 
 A wrapper Makefile is available to allows building the project in a Linux-compatible system with simple commands.  
 All the artifacts and reports produced using this Makefile are stored in the *target* folder.  
@@ -47,6 +51,8 @@ To see all available options:
 make help
 ```
 
-use the command ```make all``` to build and test all.
+Use the command ```make all``` to build and test all.
+
+Use the command ```make dbuild``` to build everything inside a docker container.
 
 The build and test artifacts are inside the `target` folder.

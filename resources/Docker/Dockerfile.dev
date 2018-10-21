@@ -1,10 +1,40 @@
 # Dockerfile
 #
-# Linux development environment
+# Development environment based on Ubuntu 16.04 (Xenial)
 #
-# Extend the tecnickcom/alldev image defined in
-# https://github.com/tecnickcom/alldev
+# @author      Nicola Asuni <info@tecnick.com>
+# @copyright   2016-2018 Nicola Asuni - Tecnick.com LTD
+# @license     MIT (see LICENSE)
+# @link        https://github.com/tecnickcom/wordfreq
 # ------------------------------------------------------------------------------
 
-FROM tecnickcom/alldev
+FROM phusion/baseimage
 MAINTAINER info@tecnick.com
+ENV DEBIAN_FRONTEND noninteractive
+ENV TERM linux
+ENV HOME /root
+ENV DISPLAY :0
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections \
+&& apt-get update \
+&& apt-get install -y \
+alien \
+astyle \
+build-essential \
+clang-tidy \
+cmake \
+debhelper \
+devscripts \
+dh-make \
+doxygen \
+fakeroot \
+lcov \
+make \
+pkg-config \
+rpm \
+# Cleanup temporary data and cache
+&& apt-get clean \
+&& apt-get autoclean \
+&& apt-get -y autoremove \
+&& rm -rf /root/.npm/cache/* \
+&& rm -rf /root/.composer/cache/* \
+&& rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*

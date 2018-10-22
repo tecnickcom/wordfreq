@@ -85,9 +85,9 @@ int test_parse_data()
     {
         for (uint8_t i = 1; i <= k; i++)
         {
-            if (hf->node[i]->freq != freq[i])
+            if (hf->item[i].node->freq != freq[i])
             {
-                fprintf(stderr, "%s ERROR: different frequency for (%" PRIu8 "): %" PRIu32 " != %" PRIu32 ".\n", __func__, i, hf->node[i]->freq, freq[i]);
+                fprintf(stderr, "%s ERROR: different frequency for (%" PRIu8 "): %" PRIu32 " != %" PRIu32 ".\n", __func__, i, hf->item[i].node->freq, freq[i]);
                 ++errors;
             }
         }

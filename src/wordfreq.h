@@ -139,16 +139,24 @@ static inline void free_trie_node(trie_node_t *node)
 }
 
 /**
+ * Struct containing a signle hifreq item.
+ */
+typedef struct hifreq_item_t
+{
+    trie_node_t *node;          //!< Pointers to trie leaf node.
+    char word[MAX_WORD_LENGTH]; //!< Word.
+} hifreq_item_t;
+
+/**
  * Struct containing the list of high-frequency words.
  * The list is sorted in descending order.
  * The maximum frequency word is at position 1.
  */
 typedef struct hifreq_t
 {
-    uint8_t size;       //!< Max number of words to store.
-    uint8_t count;      //!< Number of slots filled.
-    trie_node_t **node; //!< List of pointers to trie leaf nodes.
-    char *word;         //!< List of high-frequency words as contiguous space.
+    uint8_t size;        //!< Max number of words to store.
+    uint8_t count;       //!< Number of slots filled.
+    hifreq_item_t *item; //!< List of nodes + words.
 } hifreq_t;
 
 /**
@@ -163,18 +171,16 @@ static inline hifreq_t *new_hifreq(uint8_t size)
     hifreq_t *hf = (hifreq_t *)malloc(sizeof(hifreq_t));
     hf->size = size;
     hf->count = 0;
-    hf->node = (trie_node_t **)calloc((size + 1), sizeof(trie_node_t *));
-    if (!hf->node)
+    hf->item = (hifreq_item_t *)calloc((size + 1), sizeof(hifreq_item_t));
+    if (!hf->item)
     {
         free(hf);
         return NULL;
     }
-    hf->word = (char *)calloc(((size + 1) * MAX_WORD_LENGTH), sizeof(char));
-    if (!hf->word)
+    for (uint8_t i = 0; i <= size; i++)
     {
-        free(hf->node);
-        free(hf);
-        return NULL;
+        hf->item[i].node = NULL;
+        hf->item[i].word[0] = 0;
     }
     return hf;
 }
@@ -186,8 +192,7 @@ static inline hifreq_t *new_hifreq(uint8_t size)
  */
 static inline void free_hifreq(hifreq_t *hf)
 {
-    free(hf->node);
-    free(hf->word);
+    free(hf->item);
     free(hf);
 }
 
@@ -202,19 +207,15 @@ static inline void insert_hifreq_node(hifreq_t *hf, trie_node_t *node, const cha
 {
     ++(hf->count);
     uint8_t i, j;
-    char *w;
-    for (i = 1; ((i < hf->count) && (node->freq < hf->node[i]->freq)); i++) {};
+    for (i = 1; ((i < hf->count) && (node->freq < hf->item[i].node->freq)); i++) {};
     for (j = hf->count; j > i; j--)
     {
-        hf->node[j] = hf->node[(j - 1)];
-        hf->node[j]->hfidx = j;
-        w = hf->word + ((j - 1) * MAX_WORD_LENGTH);
-        memcpy(w + MAX_WORD_LENGTH, w, MAX_WORD_LENGTH);
+        hf->item[j] = hf->item[(j - 1)];
+        hf->item[j].node->hfidx = j;
     }
     node->hfidx = i;
-    hf->node[i] = node;
-    w = hf->word + (i * MAX_WORD_LENGTH);
-    memcpy(w, word, MAX_WORD_LENGTH);
+    hf->item[i].node = node;
+    memcpy(hf->item[i].word, word, MAX_WORD_LENGTH);
 }
 
 /**
@@ -228,19 +229,15 @@ static inline void insert_hifreq_node(hifreq_t *hf, trie_node_t *node, const cha
 static inline void update_hifreq_node(hifreq_t *hf, trie_node_t *node, const char *word)
 {
     uint8_t i = node->hfidx;
-    char *w;
-    while ((i > 1) && (node->freq > hf->node[(i - 1)]->freq))
+    while ((i > 1) && (node->freq > hf->item[(i - 1)].node->freq))
     {
-        hf->node[i] = hf->node[(i - 1)];
-        hf->node[i]->hfidx = i;
-        w = hf->word + ((i - 1) * MAX_WORD_LENGTH);
-        memcpy(w + MAX_WORD_LENGTH, w, MAX_WORD_LENGTH);
+        hf->item[i] = hf->item[(i - 1)];
+        hf->item[i].node->hfidx = i;
         --i;
     }
     node->hfidx = i;
-    hf->node[i] = node;
-    w = hf->word + (i * MAX_WORD_LENGTH);
-    memcpy(w, word, MAX_WORD_LENGTH);
+    hf->item[i].node = node;
+    memcpy(hf->item[i].word, word, MAX_WORD_LENGTH);
 }
 
 /**
@@ -265,11 +262,11 @@ static inline void update_hifreq(hifreq_t *hf, trie_node_t *node, const char *wo
         return;
     }
     // replace min frequency node (word)
-    if (node->freq > hf->node[hf->count]->freq)
+    if (node->freq > hf->item[hf->count].node->freq)
     {
-        hf->node[hf->count]->hfidx = 0;
-        hf->node[hf->count] = NULL;
-        hf->word[(hf->count * MAX_WORD_LENGTH)] = 0;
+        hf->item[hf->count].node->hfidx = 0;
+        hf->item[hf->count].node = NULL;
+        hf->item[hf->count].word[0] = 0;
         --(hf->count);
         insert_hifreq_node(hf, node, word);
     }
@@ -330,11 +327,9 @@ static inline void parse_data(const uint8_t *src, uint64_t size, trie_node_t *ro
  */
 static inline void print_hifreq(hifreq_t *hf)
 {
-    char *w;
     for (uint8_t i = 1; i <= hf->count; i++)
     {
-        w = hf->word + (i * MAX_WORD_LENGTH);
-        fprintf(stdout, "%10" PRIu32 " %s\n", hf->node[i]->freq, w);
+        fprintf(stdout, "%10" PRIu32 " %s\n", hf->item[i].node->freq, hf->item[i].word);
     }
 }
 

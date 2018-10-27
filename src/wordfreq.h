@@ -139,7 +139,7 @@ static inline void free_trie_node(trie_node_t *node)
 }
 
 /**
- * Struct containing a signle hifreq item.
+ * Struct containing a single hifreq item.
  */
 typedef struct hifreq_item_t
 {
@@ -171,7 +171,7 @@ static inline hifreq_t *new_hifreq(uint8_t size)
     hifreq_t *hf = (hifreq_t *)malloc(sizeof(hifreq_t));
     hf->size = size;
     hf->count = 0;
-    hf->item = (hifreq_item_t *)calloc((size + 1), sizeof(hifreq_item_t));
+    hf->item = (hifreq_item_t *)malloc(((uint64_t)size + 1) * sizeof(hifreq_item_t));
     if (!hf->item)
     {
         free(hf);

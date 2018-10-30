@@ -143,13 +143,12 @@ static inline void free_trie_node(trie_node_t *node)
  */
 typedef struct hifreq_item_t
 {
-    trie_node_t *node;          //!< Pointers to trie leaf node.
+    trie_node_t *node;          //!< Pointer to trie leaf node.
     char word[MAX_WORD_LENGTH]; //!< Word.
 } hifreq_item_t;
 
 /**
- * Struct containing the list of high-frequency words.
- * The list is sorted in descending order.
+ * Struct containing the list of high-frequency words (min heap).
  * The maximum frequency word is at position 1.
  */
 typedef struct hifreq_t
@@ -197,47 +196,47 @@ static inline void free_hifreq(hifreq_t *hf)
 }
 
 /**
- * Add new node in hifreq.
- *
- * @param hf   Pointer to hifreq object.
- * @param node Pointer to a trie node.
- * @param word Current word.
- */
-static inline void insert_hifreq_node(hifreq_t *hf, trie_node_t *node, const char *word)
-{
-    ++(hf->count);
-    uint8_t i, j;
-    for (i = 1; ((i < hf->count) && (node->freq < hf->item[i].node->freq)); i++) {};
-    for (j = hf->count; j > i; j--)
-    {
-        hf->item[j] = hf->item[(j - 1)];
-        hf->item[j].node->hfidx = j;
-    }
-    node->hfidx = i;
-    hf->item[i].node = node;
-    memcpy(hf->item[i].word, word, MAX_WORD_LENGTH);
-}
-
-/**
- * Update the frequency of an existing hifreq node.
- * NOTE: frequency always increase.
+ * Swap two hifreq items.
  *
  * @param hf Pointer to hifreq object.
- * @param node Pointer to a trie node.
- * @param word Current word.
+ * @param a Position of the first item.
+ * @param b Position of the second item.
  */
-static inline void update_hifreq_node(hifreq_t *hf, trie_node_t *node, const char *word)
+static void swap_items(hifreq_t *hf, uint8_t a, uint8_t b)
 {
-    uint8_t i = node->hfidx;
-    while ((i > 1) && (node->freq > hf->item[(i - 1)].node->freq))
+    hf->item[a].node->hfidx = b;
+    hf->item[b].node->hfidx = a;
+    hifreq_item_t tmp = hf->item[a];
+    hf->item[a] = hf->item[b];
+    hf->item[b] = tmp;
+}
+
+
+/**
+ * Heapify the min heap.
+ *
+ * @param hf  Pointer to hifreq object.
+ * @param idx Item position.
+ */
+static void heapify(hifreq_t *hf, uint8_t idx)
+{
+    uint8_t left, right, small;
+    left = (2 * idx);
+    right = (left + 1);
+    small = idx;
+    if ((left <= hf->count) && (hf->item[left].node->freq < hf->item[small].node->freq))
     {
-        hf->item[i] = hf->item[(i - 1)];
-        hf->item[i].node->hfidx = i;
-        --i;
+        small = left;
     }
-    node->hfidx = i;
-    hf->item[i].node = node;
-    memcpy(hf->item[i].word, word, MAX_WORD_LENGTH);
+    if ((right <= hf->count) && (hf->item[right].node->freq < hf->item[small].node->freq))
+    {
+        small = right;
+    }
+    if (small != idx)
+    {
+        swap_items(hf, small, idx);
+        heapify(hf, small);
+    }
 }
 
 /**
@@ -252,24 +251,52 @@ static inline void update_hifreq(hifreq_t *hf, trie_node_t *node, const char *wo
     // update existing node (word)
     if (node->hfidx != 0)
     {
-        update_hifreq_node(hf, node, word);
+        heapify(hf, node->hfidx);
         return;
     }
     // add new node (word) - insert sort
     if (hf->count < hf->size)
     {
-        insert_hifreq_node(hf, node, word);
+        ++(hf->count);
+        node->hfidx = hf->count;
+        hf->item[hf->count].node = node;
+        memcpy(hf->item[hf->count].word, word, MAX_WORD_LENGTH);
+        for (uint8_t i = (hf->count / 2); i > 0; --i)
+        {
+            heapify(hf, i);
+        }
         return;
     }
     // replace min frequency node (word)
-    if (node->freq > hf->item[hf->count].node->freq)
+    if (node->freq > hf->item[1].node->freq)
     {
-        hf->item[hf->count].node->hfidx = 0;
-        hf->item[hf->count].node = NULL;
-        hf->item[hf->count].word[0] = 0;
-        --(hf->count);
-        insert_hifreq_node(hf, node, word);
+        hf->item[1].node->hfidx = 0;
+        node->hfidx = 1;
+        hf->item[1].node = node;
+        memcpy(hf->item[1].word, word, MAX_WORD_LENGTH);
+        heapify(hf, node->hfidx);
     }
+}
+
+/**
+ * Reorder the items in descending order.
+ *
+ * @param hf hifreq object.
+ */
+static inline void order_hifreq(hifreq_t *hf)
+{
+    uint8_t count = hf->count;
+    while (hf->count > 2)
+    {
+        swap_items(hf, 1, hf->count);
+        --(hf->count);
+        heapify(hf, 1);
+    }
+    if (hf->count == 2)
+    {
+        swap_items(hf, 1, 2);
+    }
+    hf->count = count;
 }
 
 /**
@@ -316,14 +343,13 @@ static inline void parse_data(const uint8_t *src, uint64_t size, trie_node_t *ro
     node->isend = true;
     ++(node->freq);
     root->isend = false;
+    order_hifreq(hf);
 }
 
 /**
  * Print the high frequency words.
  *
- * @param node Pointer to a trie node.
- * @param str  String buffer.
- * @param pos  Character position inside the string.
+ * @param hf hifreq object.
  */
 static inline void print_hifreq(hifreq_t *hf)
 {

@@ -4,9 +4,6 @@
 # @link        https://github.com/tecnickcom/wordfreq
 # ------------------------------------------------------------------------------
 
-# List special make targets that are not associated with files
-.PHONY: help testcpp test tidy build doc format clean install uninstall rpm deb dbuild
-
 # Use bash as shell (Note: Ubuntu now uses dash which doesn't support PIPESTATUS).
 SHELL=/bin/bash
 
@@ -61,6 +58,7 @@ PATHDEBPKG=$(CURRENTDIR)/target/DEB
 # --- MAKE TARGETS ---
 
 # Display general help about this command
+.PHONY: help
 help:
 	@echo ""
 	@echo "$(PROJECT) Makefile."
@@ -83,10 +81,12 @@ help:
 all: clean format test tidy build doc rpm deb
 
 # Test C code compatibility with C++
+.PHONY: testcpp
 testcpp:
 	find ./src -type f -name '*.c' -exec gcc -c -pedantic -Werror -Wall -Wextra -Wcast-align -Wundef -Wformat-security -std=c++14 -x c++ -o /dev/null {} \;
 
 # Build and run the unit tests
+.PHONY: test
 test: testcpp
 	@mkdir -p target/test/test
 	@echo -e "\n\n*** BUILD TEST - see config.mk ***\n"
@@ -114,10 +114,12 @@ ifeq ($(VH_BUILD_DOXYGEN),ON)
 endif
 
 # use clang-tidy
+.PHONY: tidy
 tidy:
 	clang-tidy -checks='*,-llvm-header-guard,-llvm-include-order,-android-cloexec-open' -header-filter=.* -p . src/*.c
 
 # Build the library
+.PHONY: build
 build:
 	@mkdir -p target/build
 	@echo -e "\n\n*** BUILD RELEASE - see config.mk ***\n"
@@ -137,21 +139,25 @@ build:
 	env CTEST_OUTPUT_ON_FAILURE=1 make test | tee build.log ; test $${PIPESTATUS[0]} -eq 0
 
 # Generate source code documentation
+.PHONY: doc
 doc:
 	cd target/build && \
 	make doc | tee doc.log ; test $${PIPESTATUS[0]} -eq 0
 
 # Format the source code
+.PHONY: format
 format:
 	astyle --style=allman --recursive --suffix=none 'src/*.h'
 	astyle --style=allman --recursive --suffix=none 'src/*.c'
 	astyle --style=allman --recursive --suffix=none 'test/*.c'
 
 # Remove any build artifact
+.PHONY: clean
 clean:
 	rm -rf target
 
 # Install this application
+.PHONY: install
 install: uninstall
 	mkdir -p $(PATHINSTBIN)
 	cp -r ./target/build/src/${PROJECT} $(PATHINSTBIN)
@@ -168,11 +174,13 @@ install: uninstall
 	find $(PATHINSTMAN) -type f -exec chmod 644 {} \;
 
 # Remove all installed files (excluding configuration files)
+.PHONY: uninstall
 uninstall:
 	rm -rf $(PATHINSTBIN)$(PROJECT)
 	rm -rf $(PATHINSTDOC)
 
 # Build the RPM package for RedHat-like Linux distributions
+.PHONY: rpm
 rpm:
 	rm -rf $(PATHRPMPKG)
 	rpmbuild \
@@ -190,6 +198,7 @@ rpm:
 	-bb resources/rpm/rpm.spec
 
 # Build the DEB package for Debian-like Linux distributions
+.PHONY: deb
 deb:
 	rm -rf $(PATHDEBPKG)
 	make install DESTDIR=$(PATHDEBPKG)/$(PKGNAME)-$(VERSION)
@@ -213,6 +222,7 @@ deb:
 	cd $(PATHDEBPKG)/$(PKGNAME)-$(VERSION) && debuild -us -uc
 
 # Build everything inside a Docker container
+.PHONY: dbuild
 dbuild:
 	@mkdir -p target
 	@rm -rf target/*
